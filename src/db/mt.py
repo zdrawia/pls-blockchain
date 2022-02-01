@@ -91,3 +91,5 @@ class MerkleTree:
 
             if not (node is None) and not (node.right is None):
                 queue.put(node.right)
+
+        return hash_list
