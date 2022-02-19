@@ -32,7 +32,7 @@ class FogServer:
                     proof = received_message[:8]
                     received_message = received_message[8:]
 
-                    decrypted_msg = AESCipher(self.keys[0]).decrypt(received_message).decode('utf-8')
+                    decrypted_msg = AESCipher(self.keys[0]).decrypt(received_message)
                     nonce_star = utils.sxor(proof, decrypted_msg)
 
                     message.message_origin.receive(messages.Message(

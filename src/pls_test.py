@@ -1,0 +1,39 @@
+import logging
+import unittest
+
+import fog_server
+import sequencer
+import things
+
+
+class TestPLS(unittest.TestCase):
+    def test_broadcast(self):
+        blocks_hashes = ['00ff278e2bb68384339ffe69ae324d188295ca47b50b4f20e0b6aed2b66dc5c6',
+                         'a0bd53bcce0ca557fd3f2ad70d0e824076c20748abd586548c80f1582e56967d',
+                         '5afc64b0c7081c7f21a78e3b6b27fc53b9aa8da7734ebf249fff46dc86555f28']
+        logging.basicConfig(level=logging.DEBUG)
+        fogserver = fog_server.FogServer()
+        thing = things.Thing(fogserver)
+        seq = sequencer.Sequencer([thing])
+        seq.blocks_hashes = blocks_hashes
+        thing.enroll()
+        seq.broadcast()
+        seq.broadcast()
+        seq.broadcast()
+
+    def test_broadcast_proof_fail(self):
+        blocks_hashes = ['00ff278e2bb68384339ffe69ae324d188295ca47b50b4f20e0b6aed2b66dc5c6',
+                         'a0bd53bcce0ca557fd3f2ad70d0e824076c20748abd586548c80f1582e56967d',
+                         '5afc64b0c7081c7f21a78e3b6b27fc53b9aa8da7734ebf249fff46dc86555f28']
+        logging.basicConfig(level=logging.DEBUG)
+        fogserver = fog_server.FogServer()
+        thing = things.Thing(fogserver)
+        seq = sequencer.Sequencer([thing])
+        seq.blocks_hashes = blocks_hashes
+        thing.enroll()
+        seq.broadcast()
+        seq.broadcast_proof_fail_test()
+
+
+if __name__ == '__main__':
+    unittest.main()

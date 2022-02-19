@@ -46,7 +46,7 @@ class Thing:
         self.nonce_star = randint(10000000, 99999999)
         proof = hashlib.sha256(self.prev_latest_nonce.encode()).hexdigest()
         proof = proof[:8]
-        encrypted_msg = AESCipher(self.key).encrypt(utils.sxor(proof, str(self.nonce_star))).decode('utf-8')
+        encrypted_msg = AESCipher(self.key).encrypt(utils.sxor(proof, str(self.nonce_star)))
         q = proof + encrypted_msg
         message = messages.Message(q, messages.MessageType.ENROLMENT, self)
         self.fog_server.receive(message)
@@ -114,15 +114,19 @@ class Thing:
             case messages.MessageType.FAIL:
                 self.enroll()
             case messages.MessageType.PROOF_PLS:
+                print("Received proof")
                 if self.proof is None:
                     print("Received proof = " + message.content)
                     self.proof = message.content
                 else:
                     if hashlib.sha256(utils.sxor(self.prev_link, message.content).encode()).hexdigest() == self.proof:
                         print("verified")
-                        print("unlock H(B) = " + utils.sxor(message.content, AESCipher(utils.sxor(self.link, message.content)).decrypt(self.prev_signature).decode('utf-8')))
+                        unlock = utils.sxor(message.content, AESCipher(utils.sxor(self.prev_link, message.content)).decrypt(self.prev_signature))
+                        print("unlock H(B) = " + unlock)
                         self.prev_proof = self.proof
                         self.proof = message.content
+                    else:
+                        print("can not verify")
             case messages.MessageType.LINK_PLS:
                 print("Received link = " + message.content)
                 self.prev_link = self.link
