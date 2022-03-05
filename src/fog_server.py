@@ -8,15 +8,16 @@ import utils
 from aes import AESCipher
 from db.mt import MerkleTree
 from src.db.blocks import Block
+from src.db.cas import CAS
 
 
 class FogServer:
-    def __init__(self) -> None:
+    def __init__(self, cas: CAS) -> None:
         self.messages: List[messages.Message] = []
         self.things_uid: List[str] = []
         self.keys: List[str] = []
-        self.blocks: List[Block] = []
         self.count: int = 0
+        self.cas = cas
         print('Fog Server created!')
 
     def receive(self, message: messages.Message) -> None:
@@ -24,13 +25,13 @@ class FogServer:
             case messages.MessageType.ENROLMENT:
                 is_uid_found = False
                 for thing_uid in self.things_uid:
-                    if thing_uid == message.content[:4]:
+                    if thing_uid == message.content[:2]:
                         is_uid_found = True
                         break
                 if not is_uid_found:
                     received_message = message.content
-                    proof = received_message[:8]
-                    received_message = received_message[8:]
+                    proof = received_message
+                    received_message = received_message[64:]
 
                     decrypted_msg = AESCipher(self.keys[0]).decrypt(received_message)
                     nonce_star = utils.sxor(proof, decrypted_msg)
@@ -38,65 +39,69 @@ class FogServer:
                     message.message_origin.receive(messages.Message(
                         hashlib.sha256(nonce_star.encode()).hexdigest(),
                         messages.MessageType.ACK))
-                    self.things_uid.append(message.content[:4])
+                    thing_id = message.content[:2]
+                    self.things_uid.append(thing_id)
                     proof_record: List[str] = [proof]
-                    block = Block(self.count, MerkleTree.generate_tree(proof_record))
+                    block = Block(self.count, MerkleTree.generate_tree(proof_record), {
+                        thing_id : proof
+                    })
                     self.count += 1
-                    self.blocks.append(block)
+                    self.cas.blocks.append(block)
                     message.message_origin.is_enrolled = True
                 else:
                     message.message_origin.receive(
                         messages.Message("", messages.MessageType.FAIL))
             case messages.MessageType.PROOF_SLVP:
-                latest_proof: str = self.blocks[self.count - 3].tree.value
+                latest_proof: str = self.cas.blocks[self.count - 3].tree.value
+
                 failed: bool = True
                 first_lv: Block = Block(0, "")
-                # for block in self.blocks[self.count - 4:self.count]:
-                #     if block.tree.value is not None:
-                #         if hashlib.sha256((message.content + (utils.sxor(block.tree.value[:8], message.content))).encode()).hexdigest() == block.tree.value[8:]:
-                #             first_lv = block
-                #             for block_t in self.blocks[self.count - 4:first_lv.id]:
-                #
                 n = ""
-                for block in self.blocks[self.count - 4:self.count]:
+                for block in self.cas.blocks[self.count - 4:self.count]:
                     if block.tree.value is not None and block.tree.val_type == "LV":
-                        logging.debug("COMPARING " + hashlib.sha256(utils.sxor(block.tree.value[:8], message.content).encode()).hexdigest()[:8] + " AND " + latest_proof)
-                        if hashlib.sha256(utils.sxor(block.tree.value[:8], message.content).encode()).hexdigest()[:8] != latest_proof:
-                            continue
                         n = utils.sxor(block.tree.value[:8], message.content)
-                        logging.debug("N = " + n)
-                        logging.debug("AFTER N = " + hashlib.sha256((message.content + n).encode()).hexdigest())
-                        logging.debug(block.tree.value)
+                        print("N = L xor Pk+1 = " + n)
+                        print("H(Pk+1 || N) = " + hashlib.sha256((message.content + n).encode()).hexdigest())
+                        print("V VALUE = " + block.tree.value[8:])
                         if hashlib.sha256((message.content + n).encode()).hexdigest() == block.tree.value[8:]:
                             first_lv = block
                             failed = False
                             break
                 if failed:
-                    logging.debug("FAILED AT FIRST FOR")
                     return
-                for block in self.blocks[self.count - 4:first_lv.id]:
+                print(first_lv.id)
+                print(self.count)
+                left_border = 0
+                if self.count - 4 >= 0:
+                    left_border = self.count - 4
+                for block in self.cas.blocks[left_border:first_lv.id]:
                     if block.tree.value is not None and block.tree.val_type == "LV":
                         if block.tree.value[8:] == hashlib.sha256(utils.sxor(block.tree.value[:8], n) + n).hexdigest():
-                            logging.debug("FAILED AT SECOND FOR")
                             return
-                for block in self.blocks[self.count - 4:first_lv.id]:
+                for block in self.cas.blocks[left_border:first_lv.id]:
                     if block.tree.value is not None and block.tree.val_type == "S":
-                        hash_m = utils.sxor(AESCipher(n).decrypt(block.tree.value).decode('utf-8'), message.content) # Send to CAS
+                        hash_m = utils.sxor(AESCipher(n).decrypt(block.tree.value), message.content) # Send to CAS
+                        self.cas.deploy(hash_m)
                         msg = [message.content]
-                        block = Block(self.count, MerkleTree.generate_tree(msg))
-                        self.blocks.append(block)
-                        logging.debug("PROOF SENT")
+                        block = Block(self.count, MerkleTree.generate_tree(msg), {
+                            message.message_origin.uid : message.content
+                        })
+                        self.cas.blocks.append(block)
             case messages.MessageType.SIGNATURE_SLVP:
                 signature_record: List[str] = [message.content]
-                block = Block(self.count, MerkleTree.generate_tree(signature_record))
+                block = Block(self.count, MerkleTree.generate_tree(signature_record), {
+                    message.message_origin.uid : message.content
+                })
                 block.tree.val_type = "S"
-                self.blocks.append(block)
+                self.cas.blocks.append(block)
                 self.count += 1
             case messages.MessageType.LINKVERIFY_SLVP:
                 link_verify_record: List[str] = [message.content]
-                block = Block(self.count, MerkleTree.generate_tree(link_verify_record))
+                block = Block(self.count, MerkleTree.generate_tree(link_verify_record), {
+                    message.message_origin.uid : message.content
+                })
                 block.tree.val_type = "LV"
-                self.blocks.append(block)
+                self.cas.blocks.append(block)
                 self.count += 1
             case _:
                 pass

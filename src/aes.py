@@ -3,21 +3,24 @@ from Crypto import Random
 from Crypto.Cipher import AES
 from base64 import b64encode, b64decode
 
+
 class AESCipher(object):
     def __init__(self, key):
         self.block_size = AES.block_size
         self.key = hashlib.sha256(key.encode()).digest()
 
-    def encrypt(self, plain_text):
+    def encrypt(self, plain_text, iv=None):
         plain_text = self.__pad(plain_text)
-        iv = Random.new().read(self.block_size)
+        if iv is None:
+            iv = Random.new().read(self.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
         encrypted_text = cipher.encrypt(plain_text.encode())
         return b64encode(iv + encrypted_text).decode("utf-8")
 
-    def decrypt(self, encrypted_text):
+    def decrypt(self, encrypted_text, iv=None):
         encrypted_text = b64decode(encrypted_text)
-        iv = encrypted_text[:self.block_size]
+        if iv is None:
+            iv = encrypted_text[:self.block_size]
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
         plain_text = cipher.decrypt(encrypted_text[self.block_size:]).decode("utf-8")
         return self.__unpad(plain_text)

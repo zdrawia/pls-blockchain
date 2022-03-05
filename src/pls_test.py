@@ -4,6 +4,7 @@ import unittest
 import fog_server
 import sequencer
 import things
+from src.db.cas import CAS
 
 
 class TestPLS(unittest.TestCase):
@@ -12,9 +13,10 @@ class TestPLS(unittest.TestCase):
                          'a0bd53bcce0ca557fd3f2ad70d0e824076c20748abd586548c80f1582e56967d',
                          '5afc64b0c7081c7f21a78e3b6b27fc53b9aa8da7734ebf249fff46dc86555f28']
         logging.basicConfig(level=logging.DEBUG)
-        fogserver = fog_server.FogServer()
-        thing = things.Thing(fogserver)
-        seq = sequencer.Sequencer([thing])
+        fogserver = fog_server.FogServer(CAS())
+        seq = sequencer.Sequencer()
+        thing = things.Thing(fogserver, seq)
+        seq.things = [thing]
         seq.blocks_hashes = blocks_hashes
         thing.enroll()
         seq.broadcast()

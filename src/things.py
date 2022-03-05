@@ -21,7 +21,7 @@ class Thing:
         self.messages: List[messages.Message] = []
         self.fog_server: FogServer = _fog_server
         self.sequencer: Sequencer = _sequencer
-        self.key: str = self.fog_server.generate_key()
+        self.key: str = self.fog_server.generate_key()  # receive K
         self.uid: str = ""
         self.nonce_star: int = -1
         self.latest_proof = None
@@ -40,20 +40,24 @@ class Thing:
 
     def enroll(self) -> str:
         print('Thing trying to enroll')
-        # self.latest_proof = self.sequencer.latest_proof
-        nonce = randint(10000000, 99999999)
+
+        # self.latest_proof = self.sequencer.latest_proof  # receive sequencer's latest Pk
+
+        nonce = randint(10000000, 99999999)            # generate N1
+        self.nonce_star = randint(10000000, 99999999)  # and another random nonce N*
         self.prev_latest_nonce = str(nonce)
-        self.nonce_star = randint(10000000, 99999999)
-        proof = hashlib.sha256(self.prev_latest_nonce.encode()).hexdigest()
-        proof = proof[:8]
+        proof = hashlib.sha256(self.prev_latest_nonce.encode()).hexdigest() # compute P1 = H(N1)
+        print(len(proof))
+        # proof = proof[:8]
         encrypted_msg = AESCipher(self.key).encrypt(utils.sxor(proof, str(self.nonce_star)))
         q = proof + encrypted_msg
-        message = messages.Message(q, messages.MessageType.ENROLMENT, self)
+        message = messages.Message(q, messages.MessageType.ENROLMENT, self) # send Q = P1 || Ek(P1 xor N*)
         self.fog_server.receive(message)
-        return proof[:4]
+        return proof[:2]
 
-    def post(self, post_message: str) -> str:
+    def post(self, post_message: str=None) -> str:
         if not self.is_enrolled:
+            print("firstly enroll")
             return "Can not post message"
         prf = ""
         if not self.skip:
@@ -69,23 +73,31 @@ class Thing:
 
     def __is_record_exists(self, record: str) -> bool:
         record_hash = Node.hash(record)
-        for block in self.fog_server.blocks:
+        for block in self.fog_server.cas.blocks:
             if block.tree.value_hash == record_hash:
                 return True
         return False
 
     def __send_proof_record(self) -> str:
         proof = hashlib.sha256(self.prev_latest_nonce.encode()).hexdigest()
-        proof = proof[:8]
+        # proof = proof[:8]
         message = messages.Message(proof, messages.MessageType.PROOF_SLVP, self)
         self.fog_server.receive(message)
         return proof
 
     def __send_signature_record(self, post_message: str) -> str:
         self.latest_nonce = str(randint(10000000, 99999999))
+
+        M = AESCipher(utils.sxor(self.prev_link, self.proof)).decrypt(self.prev_signature)
+
         signature_record = AESCipher(self.prev_latest_nonce).encrypt(
-            utils.sxor(hashlib.sha256(post_message.encode()).hexdigest(),
-                       hashlib.sha256(self.latest_nonce.encode()).hexdigest())).decode('utf-8')
+            M
+        )
+
+        # signature_record = AESCipher(self.prev_latest_nonce).encrypt(
+        #     utils.sxor(hashlib.sha256(post_message.encode()).hexdigest(),
+        #                hashlib.sha256(self.latest_nonce.encode()).hexdigest())).decode('utf-8')
+
         message = messages.Message(signature_record, messages.MessageType.SIGNATURE_SLVP, self)
         while not self.__is_record_exists(signature_record):
             self.fog_server.receive(message)
@@ -94,8 +106,11 @@ class Thing:
     def __send_link_verify_record(self) -> str:
         link_verify_record = utils.sxor(
             hashlib.sha256(self.latest_nonce.encode()).hexdigest(), self.prev_latest_nonce)
+        print("AFSADASDAS = " + str(len(link_verify_record)))
+
         link_verify_record = link_verify_record + hashlib.sha256((
-            hashlib.sha256(self.latest_nonce.encode()).hexdigest() + self.prev_latest_nonce).encode()).hexdigest()
+                                                    hashlib.sha256(
+                                                        self.latest_nonce.encode()).hexdigest() + self.prev_latest_nonce).encode()).hexdigest()
         message = messages.Message(link_verify_record, messages.MessageType.LINKVERIFY_SLVP, self)
         while not self.__is_record_exists(link_verify_record):
             self.fog_server.receive(message)
@@ -106,7 +121,7 @@ class Thing:
         match message.message_type:
             case messages.MessageType.ACK:
                 if hashlib.sha256(str(self.nonce_star).encode()).hexdigest() == message.content:
-                    self.uid = message.content[:4]
+                    self.uid = message.content[:2]
                     # confirm completion to the administrator
                 else:
                     # the protocol fails
@@ -121,7 +136,9 @@ class Thing:
                 else:
                     if hashlib.sha256(utils.sxor(self.prev_link, message.content).encode()).hexdigest() == self.proof:
                         print("verified")
-                        unlock = utils.sxor(message.content, AESCipher(utils.sxor(self.prev_link, message.content)).decrypt(self.prev_signature))
+                        unlock = utils.sxor(message.content,
+                                            AESCipher(utils.sxor(self.prev_link, message.content)).decrypt(
+                                                self.prev_signature))
                         print("unlock H(B) = " + unlock)
                         self.prev_proof = self.proof
                         self.proof = message.content

@@ -14,9 +14,10 @@ if TYPE_CHECKING:
 
 
 class Sequencer:
-    def __init__(self, things: List[Thing]):
+    def __init__(self, things: List[Thing] = None):
         self.latest_nonce = str(randint(10000000, 99999999))
         self.prev_latest_nonce = str(randint(10000000, 99999999))
+        self.latest_proof = None
         self.things = things
         self.blocks_hashes = []
 
@@ -25,6 +26,7 @@ class Sequencer:
         signature = AESCipher(self.prev_latest_nonce).encrypt(
             utils.sxor(self.get_block_digest(), hashlib.sha256(self.latest_nonce.encode()).hexdigest()))
         proof = hashlib.sha256(self.prev_latest_nonce.encode()).hexdigest()
+        self.latest_proof = proof
 
         for thing in self.things:
             thing.receive(Message(link, messages.MessageType.LINK_PLS))
