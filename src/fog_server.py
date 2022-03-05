@@ -43,7 +43,7 @@ class FogServer:
                     self.things_uid.append(thing_id)
                     proof_record: List[str] = [proof]
                     block = Block(self.count, MerkleTree.generate_tree(proof_record), {
-                        thing_id : proof
+                        thing_id: proof
                     })
                     self.count += 1
                     self.cas.blocks.append(block)
@@ -62,15 +62,13 @@ class FogServer:
                         n = utils.sxor(block.tree.value[:8], message.content)
                         print("N = L xor Pk+1 = " + n)
                         print("H(Pk+1 || N) = " + hashlib.sha256((message.content + n).encode()).hexdigest())
-                        print("V VALUE = " + block.tree.value[8:])
+                        print("V value = " + block.tree.value[8:])
                         if hashlib.sha256((message.content + n).encode()).hexdigest() == block.tree.value[8:]:
                             first_lv = block
                             failed = False
                             break
                 if failed:
                     return
-                print(first_lv.id)
-                print(self.count)
                 left_border = 0
                 if self.count - 4 >= 0:
                     left_border = self.count - 4
@@ -80,17 +78,17 @@ class FogServer:
                             return
                 for block in self.cas.blocks[left_border:first_lv.id]:
                     if block.tree.value is not None and block.tree.val_type == "S":
-                        hash_m = utils.sxor(AESCipher(n).decrypt(block.tree.value), message.content) # Send to CAS
+                        hash_m = utils.sxor(AESCipher(n).decrypt(block.tree.value), message.content)  # Send to CAS
                         self.cas.deploy(hash_m)
                         msg = [message.content]
                         block = Block(self.count, MerkleTree.generate_tree(msg), {
-                            message.message_origin.uid : message.content
+                            message.message_origin.uid: message.content
                         })
                         self.cas.blocks.append(block)
             case messages.MessageType.SIGNATURE_SLVP:
                 signature_record: List[str] = [message.content]
                 block = Block(self.count, MerkleTree.generate_tree(signature_record), {
-                    message.message_origin.uid : message.content
+                    message.message_origin.uid: message.content
                 })
                 block.tree.val_type = "S"
                 self.cas.blocks.append(block)
@@ -98,7 +96,7 @@ class FogServer:
             case messages.MessageType.LINKVERIFY_SLVP:
                 link_verify_record: List[str] = [message.content]
                 block = Block(self.count, MerkleTree.generate_tree(link_verify_record), {
-                    message.message_origin.uid : message.content
+                    message.message_origin.uid: message.content
                 })
                 block.tree.val_type = "LV"
                 self.cas.blocks.append(block)
