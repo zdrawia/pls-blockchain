@@ -56,6 +56,7 @@ class Thing:
         return proof[:2]
 
     def post(self, post_message: str=None) -> str:
+        print("POSITNG")
         if not self.is_enrolled:
             print("firstly enroll")
             return "Can not post message"
@@ -74,8 +75,9 @@ class Thing:
     def __is_record_exists(self, record: str) -> bool:
         record_hash = Node.hash(record)
         for block in self.fog_server.cas.blocks:
-            if block.tree.value_hash == record_hash:
-                return True
+            for leaf in block.tree.leaves:
+                if leaf.value == record_hash:
+                    return True
         return False
 
     def __send_proof_record(self) -> str:
