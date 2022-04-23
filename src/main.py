@@ -1,7 +1,14 @@
-# empty
-from src.db.mt_new import MerkleTree
-from src.tree_element import TreeElement
+from db.mt import MerkleTree
+from tree_element import TreeElement
+import jsonpickle
 
 elems = [TreeElement("Hello", "S"), TreeElement("mister", "LV"), TreeElement("Merkle", "P"), TreeElement("Merklse", "P")]
 mtree = MerkleTree(elems)
-print(mtree.getRootHash())
+
+serialized = jsonpickle.encode(mtree)
+
+print(serialized)
+
+deserialized = jsonpickle.decode(serialized)
+
+deserialized.print_tree()

@@ -2,8 +2,8 @@ from typing import List
 
 import bitstring
 
-from src.db.mt_new import MerkleTree
-from src.db.node_new import Node
+from src.db.mt import MerkleTree
+from src.db.node import Node
 
 # Root of Trust - то, что подписывает PLS на каждом раунде
 class Block:

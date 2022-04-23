@@ -12,6 +12,8 @@ import utils
 import hashlib
 import messages
 import logging
+import requests
+import jsonpickle
 from aes import AESCipher
 from random import randint
 
@@ -21,7 +23,7 @@ class Thing:
         self.messages: List[messages.Message] = []
         self.fog_server: FogServer = _fog_server
         self.sequencer: Sequencer = _sequencer
-        self.key: str = self.fog_server.generate_key()  # receive K
+        self.key: str = ""  # receive K
         self.uid: str = ""
         self.nonce_star: int = -1
         self.latest_proof = None
@@ -29,6 +31,7 @@ class Thing:
         self.prev_latest_nonce: str = ""
         self.skip: bool = True
         self.is_enrolled = False
+
         # Sequencer
         self.link = None
         self.signature = None
@@ -39,7 +42,11 @@ class Thing:
         self.prev_proof = None
 
     def enroll(self) -> str:
-        print('Thing trying to enroll')
+        print('Thing is trying to enroll')
+
+        response = requests.get('http://127.0.0.1:5000/generatekey')
+
+        self.key = response.json()['message']
 
         # self.latest_proof = self.sequencer.latest_proof  # receive sequencer's latest Pk
 
@@ -47,16 +54,20 @@ class Thing:
         self.nonce_star = randint(10000000, 99999999)  # and another random nonce N*
         self.prev_latest_nonce = str(nonce)
         proof = hashlib.sha256(self.prev_latest_nonce.encode()).hexdigest() # compute P1 = H(N1)
-        print(len(proof))
-        # proof = proof[:8]
+
         encrypted_msg = AESCipher(self.key).encrypt(utils.sxor(proof, str(self.nonce_star)))
         q = proof + encrypted_msg
         message = messages.Message(q, messages.MessageType.ENROLMENT, self) # send Q = P1 || Ek(P1 xor N*)
-        self.fog_server.receive(message)
-        return proof[:2]
+
+        msg_serialized = jsonpickle.encode(message)
+        response = requests.post('http://127.0.0.1:5000/enroll', json=msg_serialized)
+
+        identifier = response.json()['message']
+
+        return identifier
 
     def post(self, post_message: str=None) -> str:
-        print("POSITNG")
+        print("POSTING")
         if not self.is_enrolled:
             print("firstly enroll")
             return "Can not post message"
@@ -74,7 +85,9 @@ class Thing:
 
     def __is_record_exists(self, record: str) -> bool:
         record_hash = Node.hash(record)
-        for block in self.fog_server.cas.blocks:
+        response = requests.get('http://127.0.0.1:5000/getblocks')
+        blocks = jsonpickle.decode(response.json()['message'])
+        for block in blocks:
             for leaf in block.tree.leaves:
                 if leaf.value == record_hash:
                     return True
@@ -84,7 +97,12 @@ class Thing:
         proof = hashlib.sha256(self.prev_latest_nonce.encode()).hexdigest()
         # proof = proof[:8]
         message = messages.Message(proof, messages.MessageType.PROOF_SLVP, self)
-        self.fog_server.receive(message)
+
+        msg_serialized = jsonpickle.encode(message)
+
+        response = requests.post('http://127.0.0.1:5000/post', json=msg_serialized)
+
+        # self.fog_server.receive(message)
         return proof
 
     def __send_signature_record(self, post_message: str) -> str:
@@ -101,8 +119,10 @@ class Thing:
         #                hashlib.sha256(self.latest_nonce.encode()).hexdigest())).decode('utf-8')
 
         message = messages.Message(signature_record, messages.MessageType.SIGNATURE_SLVP, self)
+        msg_serialized = jsonpickle.encode(message)
         while not self.__is_record_exists(signature_record):
-            self.fog_server.receive(message)
+            response = requests.post('http://127.0.0.1:5000/post', json=msg_serialized)
+            # self.fog_server.receive(message)
         return signature_record
 
     def __send_link_verify_record(self) -> str:
@@ -114,8 +134,10 @@ class Thing:
                                                     hashlib.sha256(
                                                         self.latest_nonce.encode()).hexdigest() + self.prev_latest_nonce).encode()).hexdigest()
         message = messages.Message(link_verify_record, messages.MessageType.LINKVERIFY_SLVP, self)
+        msg_serialized = jsonpickle.encode(message)
         while not self.__is_record_exists(link_verify_record):
-            self.fog_server.receive(message)
+            response = requests.post('http://127.0.0.1:5000/post', json=msg_serialized)
+            # self.fog_server.receive(message)
         return link_verify_record
 
     def receive(self, message: messages) -> None:

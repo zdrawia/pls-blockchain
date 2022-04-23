@@ -1,7 +1,7 @@
 import logging
 import unittest
 
-import fog_server_new
+import fog_server
 import sequencer
 import things
 from src.db.cas import CAS
@@ -13,7 +13,7 @@ class TestSLVP(unittest.TestCase):
                          'a0bd53bcce0ca557fd3f2ad70d0e824076c20748abd586548c80f1582e56967d',
                          '5afc64b0c7081c7f21a78e3b6b27fc53b9aa8da7734ebf249fff46dc86555f28']
         cas = CAS()
-        fogserver = fog_server_new.FogServer(cas)
+        fogserver = fog_server.FogServer(cas)
         seq = sequencer.Sequencer()
         seq.blocks_hashes = blocks_hashes
         thing = things.Thing(fogserver, seq)
