@@ -53,6 +53,7 @@ class Thing:
         nonce = randint(10000000, 99999999)            # generate N1
         self.nonce_star = randint(10000000, 99999999)  # and another random nonce N*
         self.prev_latest_nonce = str(nonce)
+        self.latest_nonce = self.nonce_star
         proof = hashlib.sha256(self.prev_latest_nonce.encode()).hexdigest() # compute P1 = H(N1)
 
         encrypted_msg = AESCipher(self.key).encrypt(utils.sxor(proof, str(self.nonce_star)))
