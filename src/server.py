@@ -29,12 +29,21 @@ def post():
     post_message_json = request.get_json()
     post_message = jsonpickle.decode(post_message_json)
     server.receive(post_message)
+    return "True"
 
 
 @app.route('/generatekey', methods=['GET'])
 def gen_key():
     key = server.generate_key()
     return jsonify({'message': key})
+
+
+@app.route('/getcontrib', methods=['GET'])
+def get_block_by_id():
+    message_json = request.get_json()
+    message = jsonpickle.decode(message_json)
+    result = server.receive(message)
+    return jsonify({'message': result})
 
 
 @app.route('/getblocks', methods=['GET'])
@@ -44,4 +53,4 @@ def get_blocks():
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(port=5000)

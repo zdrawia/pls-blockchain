@@ -53,7 +53,7 @@ class Thing:
         nonce = randint(10000000, 99999999)            # generate N1
         self.nonce_star = randint(10000000, 99999999)  # and another random nonce N*
         self.prev_latest_nonce = str(nonce)
-        self.latest_nonce = self.nonce_star
+        # self.latest_nonce = self.nonce_star
         proof = hashlib.sha256(self.prev_latest_nonce.encode()).hexdigest() # compute P1 = H(N1)
 
         encrypted_msg = AESCipher(self.key).encrypt(utils.sxor(proof, str(self.nonce_star)))
@@ -64,6 +64,8 @@ class Thing:
         response = requests.post('http://127.0.0.1:5000/enroll', json=msg_serialized)
 
         identifier = response.json()['message']
+
+        self.is_enrolled = True
 
         return identifier
 
@@ -109,10 +111,10 @@ class Thing:
     def __send_signature_record(self, post_message: str) -> str:
         self.latest_nonce = str(randint(10000000, 99999999))
 
-        M = AESCipher(utils.sxor(self.prev_link, self.proof)).decrypt(self.prev_signature)
+        # M = AESCipher(utils.sxor(self.prev_link, self.proof)).decrypt(self.prev_signature)
 
-        signature_record = AESCipher(self.prev_latest_nonce).encrypt(
-            M
+        signature_record = AESCipher(self.latest_nonce).encrypt(
+            post_message
         )
 
         # signature_record = AESCipher(self.prev_latest_nonce).encrypt(
@@ -140,6 +142,12 @@ class Thing:
             response = requests.post('http://127.0.0.1:5000/post', json=msg_serialized)
             # self.fog_server.receive(message)
         return link_verify_record
+
+    def get_contrib(self, block_number, user_id):
+        message = messages.Message((block_number, user_id), messages.MessageType.GETCONTRIB, self)
+        msg_serialized = jsonpickle.encode(message)
+        requests.get('http://127.0.0.1:5000/getcontrib')
+        pass
 
     def receive(self, message: messages) -> None:
         # self.messages.append(message)

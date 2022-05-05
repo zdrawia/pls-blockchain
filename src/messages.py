@@ -18,6 +18,7 @@ class MessageType(Enum):
     SIGNATURE_SLVP = 7
     LINKVERIFY_SLVP = 8
     PROOF_SLVP = 9
+    GETCONTRIB = 10
 
 
 class Message:

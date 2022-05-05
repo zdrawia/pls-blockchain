@@ -18,13 +18,13 @@ class CAS:
     def retrieve(self, _hash: str) -> str:
         return self.map[_hash]
 
-    def get_contrib(self, block_number: int, list_of_user_ids: List[str]) -> tuple[List, List]:
-        contrib_list = []
+    def get_contrib(self, block_number: int, user_id: str) -> tuple[str, List]:
+        contrib_list = None
         adjunct_hashes = []
         for block in self.blocks:
             if block.id == block_number:
-                adjunct_hashes = MerkleTree.get_tree(block.tree)
+                hashes = block.tree.get_tree()
                 for key, value in block.data.items():
-                    if key in list_of_user_ids:
+                    if key == user_id:
                         contrib_list.append(value)
         return contrib_list, adjunct_hashes

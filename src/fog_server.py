@@ -31,8 +31,8 @@ class FogServer:
             block = Block(self.count, mtree, root_hash, len(self.things_uid), len(self.users_in_block))
             self.cas.blocks.append(block)
             self.count += 1
-            print("YO NEW BLOCK: \nROOT = " + block.tree_hash + "\nCONTRIBUTORS = " + str(block.m) + "\nTOTAL BLOCKS = " + str(self.count))
-            self.tree_content = []
+            print("NEW BLOCK: \nROOT = " + block.tree_hash)
+            self.tree_content.clear()
         match message.message_type:
             case messages.MessageType.ENROLMENT:
                 is_uid_found = False
@@ -59,6 +59,8 @@ class FogServer:
                     message.message_origin.is_enrolled = True
 
                     self.users_in_block.add(message.message_origin.uid)
+
+                    self.keys.clear()
 
                     return thing_id
                 else:
@@ -102,8 +104,8 @@ class FogServer:
                     for leaf in block.tree.leaves:
 
                         if leaf.msgval is not None and leaf.type == "S":
-                            hash_m = utils.sxor(AESCipher(n).decrypt(leaf.msgval), message.content)  # Send to CAS
-                            self.cas.deploy(hash_m)
+                            # hash_m = utils.sxor(AESCipher(n).decrypt(leaf.msgval), message.content)  # Send to CAS
+                            # self.cas.deploy(hash_m)
 
                             self.tree_content.append(TreeElement(message.content, "P"))
 
@@ -118,6 +120,8 @@ class FogServer:
                 self.tree_content.append(TreeElement(message.content, "LV"))
 
                 self.users_in_block.add(message.message_origin.uid)
+            case messages.MessageType.GETCONTRIB:
+                return self.cas.get_contrib(message.content[0], message.content[1])
             case _:
                 pass
 
