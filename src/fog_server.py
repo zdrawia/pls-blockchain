@@ -30,6 +30,7 @@ class FogServer:
             root_hash = mtree.get_tree()[-1]
             block = Block(self.count, mtree, root_hash, len(self.things_uid), len(self.users_in_block))
             self.cas.blocks.append(block)
+            self.cas.last_block = block
             self.count += 1
             print("NEW BLOCK: \nROOT = " + block.tree_hash)
             self.tree_content.clear()

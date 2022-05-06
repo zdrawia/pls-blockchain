@@ -52,5 +52,13 @@ def get_blocks():
     return jsonify({'message': blocks})
 
 
+@app.route('/getblockhash', methods=['GET'])
+def get_block_hash():
+    if server.cas.last_block is not None:
+        block = jsonpickle.encode(server.cas.last_block)
+        return jsonify({'message': block})
+    return jsonify({'message': "empty"})
+
+
 if __name__ == "__main__":
     app.run(port=5000)

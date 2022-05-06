@@ -8,6 +8,7 @@ from db.mt import MerkleTree
 class CAS:
     def __init__(self):
         self.blocks: List[Block] = []
+        self.last_block: Block = None
         self.map: dict[str, str] = {}
 
     def deploy(self, file: str) -> str:
