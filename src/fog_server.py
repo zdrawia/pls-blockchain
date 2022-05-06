@@ -16,7 +16,7 @@ class FogServer:
     def __init__(self, cas: CAS) -> None:
         self.messages: List[messages.Message] = []
         self.things_uid: List[str] = []
-        self.keys: List[str] = []
+        self.key: str = ""
         self.count: int = 0
         self.cas = cas
         self.block: Block = Block(self.count)
@@ -33,12 +33,14 @@ class FogServer:
             self.cas.last_block = block
             self.count += 1
             print("NEW BLOCK: \nROOT = " + block.tree_hash)
+            print("\nCONTRIBUTORS = " + str(len(self.things_uid)))
             self.tree_content.clear()
         match message.message_type:
             case messages.MessageType.ENROLMENT:
                 is_uid_found = False
+                dec_id = str((int("0x" + message.content[:2], 16)))
                 for thing_uid in self.things_uid:
-                    if thing_uid == message.content[:2]:
+                    if thing_uid == dec_id:
                         is_uid_found = True
                         break
                 if not is_uid_found:
@@ -46,13 +48,14 @@ class FogServer:
                     proof = received_message
                     received_message = received_message[64:]
 
-                    decrypted_msg = AESCipher(self.keys[0]).decrypt(received_message)
+                    decrypted_msg = AESCipher(self.key).decrypt(received_message)
                     nonce_star = utils.sxor(proof, decrypted_msg)
 
                     message.message_origin.receive(messages.Message(
                         hashlib.sha256(nonce_star.encode()).hexdigest(),
                         messages.MessageType.ACK))
-                    thing_id = message.content[:2]
+
+                    thing_id = dec_id
                     self.things_uid.append(thing_id)
 
                     self.tree_content.append(TreeElement(proof, "P"))
@@ -60,8 +63,6 @@ class FogServer:
                     message.message_origin.is_enrolled = True
 
                     self.users_in_block.add(message.message_origin.uid)
-
-                    self.keys.clear()
 
                     return thing_id
                 else:
@@ -128,5 +129,5 @@ class FogServer:
 
     def generate_key(self) -> str:
         key = secrets.token_hex(8)
-        self.keys.append(key)
+        self.key = key
         return key

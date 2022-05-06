@@ -17,7 +17,8 @@ if __name__ == '__main__':
         inp = input("")
         match inp:
             case "enroll":
-                print(thing.enroll())
+                idd = thing.enroll()
+                print("ID = " + idd)
             case "post":
                 msg = input("Input message to post on blockchain.\n")
                 print(thing.post(msg))
